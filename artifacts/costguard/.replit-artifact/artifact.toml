@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "CostGuard"
+description = "A professional Azure infrastructure cost impact predictor for developers and FinOps teams. Analyze Terraform plans, compare monthly cost deltas, and make budget-aware deployment decisions."
+version = "1.0.0"
+id = "artifacts/costguard"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 21566
+
+[services.development]
+run = "pnpm --filter @workspace/costguard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/costguard", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/costguard/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21566"
+BASE_PATH = "/"

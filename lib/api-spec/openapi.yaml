@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: costguard
+    description: CostGuard dashboard and cost analysis operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,118 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /costguard/overview:
+    get:
+      operationId: getCostguardOverview
+      tags: [costguard]
+      summary: Get CostGuard overview
+      responses:
+        "200":
+          description: Dashboard overview metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostguardOverview"
+  /costguard/plans:
+    get:
+      operationId: getCostguardPlans
+      tags: [costguard]
+      summary: List Terraform plans
+      responses:
+        "200":
+          description: Terraform plan analysis history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TerraformPlan"
+  /costguard/plans/{planId}:
+    get:
+      operationId: getCostguardPlan
+      tags: [costguard]
+      summary: Get a Terraform plan analysis
+      parameters:
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Terraform plan analysis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TerraformPlan"
+        "404":
+          description: Plan not found
+  /costguard/resources:
+    get:
+      operationId: getCostguardResources
+      tags: [costguard]
+      summary: List extracted Azure resources
+      responses:
+        "200":
+          description: Azure resource cost impacts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AzureResource"
+  /costguard/pricing:
+    get:
+      operationId: getCostguardPricing
+      tags: [costguard]
+      summary: List cached Azure retail prices
+      responses:
+        "200":
+          description: Cached Azure retail pricing rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PricingItem"
+  /costguard/cache:
+    get:
+      operationId: getCostguardCache
+      tags: [costguard]
+      summary: Get pricing cache health
+      responses:
+        "200":
+          description: Pricing cache health
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CacheHealth"
+  /costguard/policy:
+    get:
+      operationId: getCostguardPolicy
+      tags: [costguard]
+      summary: Get budget guardrail policy
+      responses:
+        "200":
+          description: Budget policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BudgetPolicy"
+  /costguard/reports:
+    get:
+      operationId: getCostguardReports
+      tags: [costguard]
+      summary: List cost analysis reports
+      responses:
+        "200":
+          description: Cost analysis reports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CostReport"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +147,111 @@ components:
           type: string
       required:
         - status
+    CostguardOverview:
+      type: object
+      required: [monthlyCost, monthlyDelta, plansAnalyzed, passRate, budgetLimit, budgetUsed, lastSynced, costTrend, recentActivity]
+      properties:
+        monthlyCost: { type: number }
+        monthlyDelta: { type: number }
+        plansAnalyzed: { type: integer }
+        passRate: { type: number }
+        budgetLimit: { type: number }
+        budgetUsed: { type: number }
+        lastSynced: { type: string }
+        costTrend:
+          type: array
+          items:
+            $ref: "#/components/schemas/TrendPoint"
+        recentActivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityItem"
+    TrendPoint:
+      type: object
+      required: [label, cost, budget]
+      properties:
+        label: { type: string }
+        cost: { type: number }
+        budget: { type: number }
+    ActivityItem:
+      type: object
+      required: [id, title, detail, status, timestamp]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        detail: { type: string }
+        status: { type: string, enum: [passed, blocked, synced, analyzed] }
+        timestamp: { type: string }
+    TerraformPlan:
+      type: object
+      required: [id, name, branch, author, status, createdAt, resources, currentCost, proposedCost, delta, duration]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        branch: { type: string }
+        author: { type: string }
+        status: { type: string, enum: [passed, blocked, pending, analyzing] }
+        createdAt: { type: string }
+        resources: { type: integer }
+        currentCost: { type: number }
+        proposedCost: { type: number }
+        delta: { type: number }
+        duration: { type: string }
+    AzureResource:
+      type: object
+      required: [id, name, type, region, action, currentCost, proposedCost, delta, confidence]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        type: { type: string }
+        region: { type: string }
+        action: { type: string, enum: [create, update, delete, no-change] }
+        currentCost: { type: number }
+        proposedCost: { type: number }
+        delta: { type: number }
+        confidence: { type: number }
+    PricingItem:
+      type: object
+      required: [id, service, sku, region, unit, price, currency, syncedAt, cacheStatus]
+      properties:
+        id: { type: string }
+        service: { type: string }
+        sku: { type: string }
+        region: { type: string }
+        unit: { type: string }
+        price: { type: number }
+        currency: { type: string }
+        syncedAt: { type: string }
+        cacheStatus: { type: string, enum: [fresh, stale] }
+    CacheHealth:
+      type: object
+      required: [engine, status, entries, hitRate, lastRefresh, size]
+      properties:
+        engine: { type: string }
+        status: { type: string, enum: [healthy, degraded] }
+        entries: { type: integer }
+        hitRate: { type: number }
+        lastRefresh: { type: string }
+        size: { type: string }
+    BudgetPolicy:
+      type: object
+      required: [name, monthlyLimit, deltaLimit, enforcement, window, updatedAt]
+      properties:
+        name: { type: string }
+        monthlyLimit: { type: number }
+        deltaLimit: { type: number }
+        enforcement: { type: string, enum: [block, warn] }
+        window: { type: string }
+        updatedAt: { type: string }
+    CostReport:
+      type: object
+      required: [id, name, period, totalCost, delta, status, generatedAt]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        period: { type: string }
+        totalCost: { type: number }
+        delta: { type: number }
+        status: { type: string, enum: [passed, blocked, reviewed] }
+        generatedAt: { type: string }
 
